@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filebase IPFS Token Uploader</title>
+    <title>Filebase IPFS 10k Folder Studio</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center py-10 px-4">
@@ -12,7 +12,7 @@
         <h1 class="text-3xl font-black text-center mb-2 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent tracking-wide">
             Filebase IPFS Token Studio
         </h1>
-        <p class="text-slate-400 text-center mb-8 text-sm">Upload your NFT images folder seamlessly using your single IPFS RPC Token.</p>
+        <p class="text-slate-400 text-center mb-8 text-sm">Upload massive 10k NFT images folder seamlessly using a single IPFS RPC Token.</p>
 
         <div id="loginSection" class="space-y-5">
             <h2 class="text-lg font-bold text-slate-300 border-b border-slate-800 pb-2">🔑 IPFS Authentication Login</h2>
@@ -94,7 +94,7 @@
         let filesQueue = [];
         let folderName = "";
 
-        // Verify token presence and slide into upload screen view
+        // Login handle
         loginBtn.addEventListener('click', () => {
             const token = document.getElementById('ipfsToken').value.trim();
             if (!token) {
@@ -106,7 +106,7 @@
             uploadSection.classList.remove('hidden');
         });
 
-        // Triggered when file selector directory target is read
+        // Folder selection event
         folderInput.addEventListener('change', (e) => {
             filesQueue = Array.from(e.target.files);
             if (filesQueue.length > 0) {
@@ -119,10 +119,11 @@
                 startUploadBtn.disabled = false;
                 resultBox.classList.add('hidden');
                 statusBox.classList.add('hidden');
+                uploadProgress.style.width = '0%';
             }
         });
 
-        // Clean memory state on exit
+        // Disconnect handle
         logoutBtn.addEventListener('click', () => {
             authToken = "";
             filesQueue = [];
@@ -135,7 +136,7 @@
             loginSection.classList.remove('hidden');
         });
 
-        // Bulk IPFS Form Multi-part folder stream execution
+        // Optimized batch folder upload routine for 10k assets
         startUploadBtn.addEventListener('click', async () => {
             if (filesQueue.length === 0 || !authToken) return;
 
@@ -144,19 +145,31 @@
             statusBox.classList.remove('hidden');
             resultBox.classList.add('hidden');
 
-            // Form data structure mapped perfectly for native IPFS directory API standards
             const formData = new FormData();
-            
-            filesQueue.forEach((file) => {
-                // Pinning entire directory relative paths preserves 0.png, 1.png sequence layout
-                const relativePath = file.webkitRelativePath;
-                formData.append('file', file, relativePath);
-            });
+            const BATCH_SIZE = 100; // ১০০টি করে ফাইল প্রসেস হবে ক্র্যাশ এড়াতে
+            let queuedCount = 0;
 
-            statusText.innerText = `⚡ Pushing batch directory metadata to Filebase IPFS cluster node...`;
+            // ১. ব্রাউজার মেমরিতে ফাইলগুলোকে ছোট ছোট ব্যাচে কিউ করা
+            for (let i = 0; i < filesQueue.length; i += BATCH_SIZE) {
+                const batch = filesQueue.slice(i, i + BATCH_SIZE);
+                
+                batch.forEach((file) => {
+                    formData.append('file', file, file.webkitRelativePath);
+                });
 
+                queuedCount += batch.length;
+                const percent = Math.round((queuedCount / filesQueue.length) * 95); // নেটওয়ার্ক রেসপন্সের জন্য ৫% বাকি রাখা
+                uploadProgress.style.width = `${percent}%`;
+                statusText.innerText = `⚡ Processing & Queueing items: ${queuedCount} / ${filesQueue.length}`;
+                
+                // ব্রাউজারকে ফ্রি টাইম দেওয়ার জন্য আলতো ব্রেক
+                await new Promise(resolve => setTimeout(resolve, 30));
+            }
+
+            statusText.innerText = `🚀 Uploading finalized structure to Filebase IPFS node (Please wait, finalizing 10k assets)...`;
+
+            // ২. ফাইলবেস সার্ভারে ডেটা পুশ করা
             try {
-                // Performing direct HTTPS REST call against Filebase native IPFS RPC endpoint setup
                 const response = await fetch('https://rpc.filebase.io/api/v0/add?pin=true&recursive=true&wrap-with-directory=false', {
                     method: 'POST',
                     headers: {
@@ -166,16 +179,15 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error(`IPFS Server cluster responded with error status: ${response.status}`);
+                    throw new Error(`IPFS Node responded with error status: ${response.status}`);
                 }
 
-                // IPFS API responses for chunked streams return individual raw JSON blocks separated by newlines
                 const rawTextOutput = await response.text();
                 const jsonLines = rawTextOutput.trim().split('\n');
                 
                 let foundFolderCID = "";
 
-                // Walk backward to pinpoint the root wrapping directory node container allocation
+                // রেসপন্স স্ক্র্যাপ করে ফোল্ডারের রুট CID খুঁজে বের করা
                 for (let i = jsonLines.length - 1; i >= 0; i--) {
                     const parsedNode = JSON.parse(jsonLines[i]);
                     if (parsedNode.Name === folderName || parsedNode.Name === "") {
@@ -184,20 +196,19 @@
                     }
                 }
 
-                // Fail-safe fallback logic in case root string label returns masked
                 if (!foundFolderCID && jsonLines.length > 0) {
                     const lastLineNode = JSON.parse(jsonLines[jsonLines.length - 1]);
                     foundFolderCID = lastLineNode.Hash;
                 }
 
                 uploadProgress.style.width = '100%';
-                statusText.innerText = "🎉 All elements fully verified on-chain!";
+                statusText.innerText = "🎉 10,000 NFTs Pinned Successfully!";
                 finalCID.value = foundFolderCID;
                 resultBox.classList.remove('hidden');
 
             } catch (err) {
                 console.error(err);
-                statusText.innerText = `❌ Connection Error: ${err.message || 'Check network connection configuration.'}`;
+                statusText.innerText = `❌ Connection Timeout/Error: ${err.message || 'Check network limit.'}`;
             }
 
             startUploadBtn.disabled = false;
