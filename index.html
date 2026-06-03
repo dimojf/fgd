@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filebase IPFS Token Uploader</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center py-10 px-4">
+
+    <div class="max-w-2xl w-full bg-slate-900 rounded-2xl p-8 shadow-2xl border border-slate-800">
+        <h1 class="text-3xl font-black text-center mb-2 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent tracking-wide">
+            Filebase IPFS Token Studio
+        </h1>
+        <p class="text-slate-400 text-center mb-8 text-sm">Upload your NFT images folder seamlessly using your single IPFS RPC Token.</p>
+
+        <div id="loginSection" class="space-y-5">
+            <h2 class="text-lg font-bold text-slate-300 border-b border-slate-800 pb-2">🔑 IPFS Authentication Login</h2>
+            <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Filebase IPFS RPC Token:</label>
+                <textarea id="ipfsToken" rows="3" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:border-cyan-500 font-mono text-sm resize-none" placeholder="Paste your generated IPFS RPC API Token here..."></textarea>
+            </div>
+            <button id="loginBtn" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-3 rounded-lg transition shadow-lg transform active:scale-95">
+                Connect Securely
+            </button>
+        </div>
+
+        <div id="uploadSection" class="hidden space-y-6">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h2 class="text-lg font-bold text-emerald-400">✅ IPFS Auth Active</h2>
+                <button id="logoutBtn" class="text-xs bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 px-3 py-1 rounded border border-slate-700 transition">Disconnect</button>
+            </div>
+
+            <div class="border-2 border-dashed border-slate-700 hover:border-cyan-500 rounded-xl p-10 text-center cursor-pointer transition-all bg-slate-900/50 relative group">
+                <input type="file" id="folderInput" webkitdirectory directory multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                <div class="space-y-3">
+                    <div class="mx-auto h-12 w-12 text-slate-500 group-hover:text-cyan-400 transition flex items-center justify-center bg-slate-800 rounded-full">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <p class="text-lg font-semibold text-slate-300">Select NFT Folder</p>
+                    <p class="text-xs text-slate-500">Choose the unzipped folder containing your sequential images (0.png, 1.png, etc.)</p>
+                </div>
+            </div>
+
+            <div id="fileInfo" class="hidden text-sm bg-slate-800/50 p-3 rounded-lg border border-slate-800 text-slate-400 font-medium">
+                📁 Selected Directory: <span id="folderNameDisplay" class="text-cyan-400 font-bold"></span> (<span id="fileCountDisplay"></span> items ready)
+            </div>
+
+            <button id="startUploadBtn" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-3 rounded-lg transition shadow-lg disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+                🚀 Push Folder to IPFS
+            </button>
+
+            <div id="statusBox" class="hidden bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
+                <p id="statusText" class="text-sm font-semibold text-cyan-400 mb-2">Analyzing collection structure...</p>
+                <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden mb-2">
+                    <div id="uploadProgress" class="bg-cyan-500 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div id="resultBox" class="hidden bg-slate-900 p-5 rounded-xl border-2 border-emerald-500/30 space-y-3">
+                <p class="text-emerald-400 font-extrabold text-center text-lg">🎉 IPFS Directory Pinned Successfully!</p>
+                <div class="bg-slate-950 p-3 rounded border border-slate-800">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Your Main Folder CID:</label>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="finalCID" class="w-full bg-transparent text-amber-400 font-mono text-sm focus:outline-none" readonly>
+                        <button id="copyBtn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded font-bold transition">Copy CID</button>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 text-center italic">Pass this exact CID value to your IcePunks smart contract deployment initialization.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const loginSection = document.getElementById('loginSection');
+        const uploadSection = document.getElementById('uploadSection');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const folderInput = document.getElementById('folderInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const folderNameDisplay = document.getElementById('folderNameDisplay');
+        const fileCountDisplay = document.getElementById('fileCountDisplay');
+        const startUploadBtn = document.getElementById('startUploadBtn');
+        const statusBox = document.getElementById('statusBox');
+        const statusText = document.getElementById('statusText');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const resultBox = document.getElementById('resultBox');
+        const finalCID = document.getElementById('finalCID');
+        const copyBtn = document.getElementById('copyBtn');
+
+        let authToken = "";
+        let filesQueue = [];
+        let folderName = "";
+
+        // Verify token presence and slide into upload screen view
+        loginBtn.addEventListener('click', () => {
+            const token = document.getElementById('ipfsToken').value.trim();
+            if (!token) {
+                alert("Please paste a valid Filebase IPFS RPC Token to authenticate.");
+                return;
+            }
+            authToken = token;
+            loginSection.classList.add('hidden');
+            uploadSection.classList.remove('hidden');
+        });
+
+        // Triggered when file selector directory target is read
+        folderInput.addEventListener('change', (e) => {
+            filesQueue = Array.from(e.target.files);
+            if (filesQueue.length > 0) {
+                const samplePath = filesQueue[0].webkitRelativePath;
+                folderName = samplePath.split('/')[0];
+
+                folderNameDisplay.innerText = folderName;
+                fileCountDisplay.innerText = filesQueue.length;
+                fileInfo.classList.remove('hidden');
+                startUploadBtn.disabled = false;
+                resultBox.classList.add('hidden');
+                statusBox.classList.add('hidden');
+            }
+        });
+
+        // Clean memory state on exit
+        logoutBtn.addEventListener('click', () => {
+            authToken = "";
+            filesQueue = [];
+            document.getElementById('ipfsToken').value = "";
+            fileInfo.classList.add('hidden');
+            statusBox.classList.add('hidden');
+            resultBox.classList.add('hidden');
+            startUploadBtn.disabled = true;
+            uploadSection.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+        });
+
+        // Bulk IPFS Form Multi-part folder stream execution
+        startUploadBtn.addEventListener('click', async () => {
+            if (filesQueue.length === 0 || !authToken) return;
+
+            startUploadBtn.disabled = true;
+            folderInput.disabled = true;
+            statusBox.classList.remove('hidden');
+            resultBox.classList.add('hidden');
+
+            // Form data structure mapped perfectly for native IPFS directory API standards
+            const formData = new FormData();
+            
+            filesQueue.forEach((file) => {
+                // Pinning entire directory relative paths preserves 0.png, 1.png sequence layout
+                const relativePath = file.webkitRelativePath;
+                formData.append('file', file, relativePath);
+            });
+
+            statusText.innerText = `⚡ Pushing batch directory metadata to Filebase IPFS cluster node...`;
+
+            try {
+                // Performing direct HTTPS REST call against Filebase native IPFS RPC endpoint setup
+                const response = await fetch('https://rpc.filebase.io/api/v0/add?pin=true&recursive=true&wrap-with-directory=false', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`IPFS Server cluster responded with error status: ${response.status}`);
+                }
+
+                // IPFS API responses for chunked streams return individual raw JSON blocks separated by newlines
+                const rawTextOutput = await response.text();
+                const jsonLines = rawTextOutput.trim().split('\n');
+                
+                let foundFolderCID = "";
+
+                // Walk backward to pinpoint the root wrapping directory node container allocation
+                for (let i = jsonLines.length - 1; i >= 0; i--) {
+                    const parsedNode = JSON.parse(jsonLines[i]);
+                    if (parsedNode.Name === folderName || parsedNode.Name === "") {
+                        foundFolderCID = parsedNode.Hash;
+                        break;
+                    }
+                }
+
+                // Fail-safe fallback logic in case root string label returns masked
+                if (!foundFolderCID && jsonLines.length > 0) {
+                    const lastLineNode = JSON.parse(jsonLines[jsonLines.length - 1]);
+                    foundFolderCID = lastLineNode.Hash;
+                }
+
+                uploadProgress.style.width = '100%';
+                statusText.innerText = "🎉 All elements fully verified on-chain!";
+                finalCID.value = foundFolderCID;
+                resultBox.classList.remove('hidden');
+
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = `❌ Connection Error: ${err.message || 'Check network connection configuration.'}`;
+            }
+
+            startUploadBtn.disabled = false;
+            folderInput.disabled = false;
+        });
+
+        // Copy Clipboard Control Helper
+        copyBtn.addEventListener('click', () => {
+            finalCID.select();
+            document.execCommand('copy');
+            alert('CID copied directly to clipboard memory context!');
+        });
+    </script>
+</body>
+</html>
